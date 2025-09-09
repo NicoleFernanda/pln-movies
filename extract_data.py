@@ -12,13 +12,11 @@ import csv
 def configurar_driver():
     """Configura o driver Chrome com opções otimizadas"""
     chrome_options = Options()
-    # Opções para velocidade - REMOVIDO --disable-javascript
-    chrome_options.add_argument("--disable-images")  # Não carrega imagens
+    chrome_options.add_argument("--disable-images") 
     chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--disable-plugins")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--no-sandbox")
-    # chrome_options.add_argument("--headless")  # Descomente para rodar sem interface
     
     driver = webdriver.Chrome(options=chrome_options)
     driver.set_page_load_timeout(30)
@@ -30,13 +28,9 @@ def extrair_dados_filme(driver, url):
         print(f"Processando: {url}")
         driver.get(url)
         
-        # Aguarda mais tempo para carregar (JS precisa funcionar)
-        #time.sleep(4)
-        
-        # Cria wait para elementos dinâmicos
         wait = WebDriverWait(driver, 15)
         
-        # ----- Título (usando Selenium direto) -----
+        # ----- Título -----
         try:
             titulo_el = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h1.title-detail-hero__details__title")))
             titulo = titulo_el.text.strip() if titulo_el.text else "NÃO ENCONTRADO"
@@ -57,15 +51,15 @@ def extrair_dados_filme(driver, url):
         except:
             direcao = "NÃO ENCONTRADO"
         
-        # ----- Gêneros (XPath CORRIGIDO) -----
+        # ----- Gêneros  -----
         generos = "NÃO ENCONTRADO"
         
         # Lista de XPaths para testar
         xpaths_generos = [
-            '/html/body/div[1]/div[3]/div[2]/div[3]/div[1]/div[6]/aside/div/div[3]/div[3]/div/div/span[1]',  # Seu XPath
-            '//*[@id="base"]//aside//div[3]/div[3]/div/div/span[1]',  # Mais flexível
-            '//aside//span[contains(text(),"Ficção") or contains(text(),"Ação") or contains(text(),"Drama")]',  # Por conteúdo
-            '//div[contains(@class,"detail-infos")]//span[1]',  # Genérico
+            '/html/body/div[1]/div[3]/div[2]/div[3]/div[1]/div[6]/aside/div/div[3]/div[3]/div/div/span[1]', 
+            '//*[@id="base"]//aside//div[3]/div[3]/div/div/span[1]', 
+            '//aside//span[contains(text(),"Ficção") or contains(text(),"Ação") or contains(text(),"Drama")]', 
+            '//div[contains(@class,"detail-infos")]//span[1]', 
             '//*[@id="base"]/div[2]/div[3]/div[1]/div[6]/aside/div/div[3]/div[1]/div/div/span[1]'
         ]
         
@@ -88,10 +82,8 @@ def extrair_dados_filme(driver, url):
         # ----- Canais/Serviços -----
         canais = "NÃO ENCONTRADO"
         try:
-            # Aguarda o container aparecer
             container = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.buybox-container")))
             
-            # Busca por imagens com título
             imgs = driver.find_elements(By.CSS_SELECTOR, "div.buybox-container img[title], div.streaming-offer img[title]")
             
             if imgs:
@@ -103,7 +95,7 @@ def extrair_dados_filme(driver, url):
                 canais = ", ".join(titles) if titles else "NÃO ENCONTRADO"
                 
         except:
-            pass  # Mantém "NÃO ENCONTRADO"
+            pass 
         
         return {
             "titulo": titulo,
