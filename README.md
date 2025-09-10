@@ -1,9 +1,3 @@
-Show, Nicole 🙌
-Dá pra deixar esse **README.md** bem mais organizado e explicativo, com seções, exemplos de execução e até uns blocos de código. Aqui vai uma versão mais bonitinha:
-
----
-
-````markdown
 # 🎬 PLN Movies
 Repositório criado para a disciplina de **Processamento de Linguagem Natural (PLN)**.
 
@@ -20,10 +14,6 @@ O fluxo é dividido em **duas etapas principais**:
    - Usa **Selenium** para rolar a página inicial do JustWatch.  
    - Extrai todos os links de filmes encontrados.  
    - Gera o arquivo `movies_links.csv`.  
-
-   ```bash
-   python get_movies_links.py
-````
 
 > Resultado: um CSV com todos os links de filmes coletados.
 
@@ -44,10 +34,6 @@ O fluxo é dividido em **duas etapas principais**:
      * 🔞 Classificação indicativa
    * Gera o arquivo `movies_info.csv`.
 
-   ```bash
-   python get_movies_info.py
-   ```
-
    > Resultado: um CSV tabular com os detalhes de cada filme.
 
 ---
@@ -65,4 +51,5 @@ O fluxo é dividido em **duas etapas principais**:
 * [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/bs4/doc/)
 * [pandas](https://pandas.pydata.org/)
 * [requests](https://docs.python-requests.org/)
+
 
