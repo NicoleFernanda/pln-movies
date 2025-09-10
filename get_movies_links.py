@@ -6,7 +6,7 @@ import time
 import csv
 
 
-def coletar_links_filmes_scroll():
+def get_movies_links():
     driver = webdriver.Chrome()
     url = "https://www.justwatch.com/br/filmes"
     driver.get(url)
@@ -14,7 +14,7 @@ def coletar_links_filmes_scroll():
     # Rola até o final da página
     last_height = driver.execute_script("return document.body.scrollHeight")
     scrolls = 0
-    while scrolls < 30:  # Limita a 30 rolagens
+    while scrolls < 60:  # Limita a 30 rolagens
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(15)  # Espera carregar mais filmes
         new_height = driver.execute_script("return document.body.scrollHeight")
@@ -35,7 +35,7 @@ def coletar_links_filmes_scroll():
     print(f"Total de filmes encontrados: {len(todos_links)}")
 
     # Grava os links em um arquivo CSV
-    with open("links_filmes.csv", "w", newline='', encoding="utf-8") as csvfile:
+    with open("movies_links.csv", "w", newline='', encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(["link"])
         for l in todos_links:
@@ -43,4 +43,4 @@ def coletar_links_filmes_scroll():
 
     driver.quit()
 
-coletar_links_filmes_scroll()
+get_movies_links()
