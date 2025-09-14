@@ -2,6 +2,13 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import requests
 
+import nltk
+import string
+#from nltk.stem import RSLPStemmer 
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -31,6 +38,7 @@ def get_movies_info():
             # pega a sinopse
             div_synopsis = soup.find("div", id="synopsis")
             synopsis_content = div_synopsis.find("p").get_text(strip=True)
+            synopsis_content = tokens(synopsis_content)
 
             # pega as avaliações
             ratings_rotten_jw = soup.find_all("div", class_="jw-scoring-listing__rating--group jw-scoring-listing__rating--no-link")
@@ -80,5 +88,40 @@ def get_movies_info():
             }])], ignore_index=True)
 
     df.to_csv("movies_info.csv", index=False, encoding="utf-8")
+
+def tokens(sinopse):
+    # Verificar se a sinopse não é None ou vazia
+    if not sinopse or pd.isna(sinopse):
+        return ""
+    
+    #stemmer = RSLPStemmer()
+    lemmatizer = WordNetLemmatizer()
+    
+    # Converter para minúsculas
+    sinopse = sinopse.lower()
+    
+    # Remover pontuações
+    sinopse = sinopse.translate(str.maketrans('', '', string.punctuation))
+    
+    # Tokenizar (dividir em palavras)
+    palavras = word_tokenize(sinopse, language='portuguese')
+    
+    # Carregar stopwords em português
+    stop_words = set(stopwords.words('portuguese'))
+    
+    # Remover stopwords
+    palavras_filtradas = [palavra for palavra in palavras if palavra not in stop_words]
+
+    #palavras_stemmed = [stemmer.stem(palavra) for palavra in palavras_filtradas]
+
+    # Lemmatizar
+    lemmas = [lemmatizer.lemmatize(palavra) for palavra in palavras_filtradas]
+    
+    palavras_finais = [
+        palavra for palavra in lemmas 
+        if len(palavra) > 2 and palavra.isalpha()  # Só letras
+    ]
+    
+    return palavras_finais 
 
 get_movies_info()
