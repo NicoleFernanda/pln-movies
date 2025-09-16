@@ -13,9 +13,7 @@ O fluxo é dividido em **duas etapas principais**:
    Arquivo: `get_movies_links.py`  
    - Usa **Selenium** para rolar a página inicial do JustWatch.  
    - Extrai todos os links de filmes encontrados.  
-   - Gera o arquivo `movies_links.csv`.  
-
-> Resultado: um CSV com todos os links de filmes coletados.
+   - Gera o arquivo `movies_links.csv`, dentro da pasta `data`.  
 
 ---
 
@@ -28,13 +26,13 @@ O fluxo é dividido em **duas etapas principais**:
      * 🎥 Título e ano
      * 📺 Plataformas de streaming
      * 📝 Sinopse
+     * 📝 Sinopse feita lemmatização.
+     * 📝 Sinopse feita stemming.
      * ⭐ Avaliações (JustWatch, Rotten Tomatoes, IMDb)
      * 🎭 Gêneros
      * ⏱️ Duração
      * 🔞 Classificação indicativa
-   * Gera o arquivo `movies_info.csv`.
-
-   > Resultado: um CSV tabular com os detalhes de cada filme.
+   * Gera o arquivo `movies_info.csv`, dentro da pasta `data`.
 
 ---
 
@@ -51,5 +49,4 @@ O fluxo é dividido em **duas etapas principais**:
 * [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/bs4/doc/)
 * [pandas](https://pandas.pydata.org/)
 * [requests](https://docs.python-requests.org/)
-
-
+* [nltk](https://github.com/nltk/nltk)
