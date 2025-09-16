@@ -1,8 +1,6 @@
 from bs4 import BeautifulSoup
 import pandas as pd
 import requests
-
-import nltk
 import string
 #from nltk.stem import RSLPStemmer 
 from nltk.stem import WordNetLemmatizer
@@ -17,7 +15,7 @@ HEADERS = {
 
 def get_movies_info():
     df = pd.DataFrame(columns=[
-        "title", "year", "streamings", "synopsis_introduction", "synopsis_content",
+        "Link","title", "year", "streamings", "synopsis_introduction", "synopsis_content",
         "just_watch_rating", "rotten_tomatoes_rating", 
         "imdb_ratings", "genres", "movie_duration", "age_classification"
     ])
@@ -75,6 +73,7 @@ def get_movies_info():
                 age_classification = infos[8].get_text(strip=True)            
             
             df = pd.concat([df, pd.DataFrame([{
+                "Link": link,
                 "title": title,
                 "year": year,
                 "streamings": streamings_names,
@@ -87,9 +86,9 @@ def get_movies_info():
                 "age_classification": age_classification
             }])], ignore_index=True)
 
-    df.to_csv("movies_info.csv", index=False, encoding="utf-8")
+    df.to_csv("movies_info.csv", index=False, encoding="utf-8", sep=";")
 
-def tokens(sinopse):
+def tokens(sinopse): 
     # Verificar se a sinopse não é None ou vazia
     if not sinopse or pd.isna(sinopse):
         return ""
