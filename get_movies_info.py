@@ -7,16 +7,17 @@ from nltk.stem import RSLPStemmer
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+import os
 
 
 # precisa rodar apenas uma vez, para baixar as dependências
 # depois da primeira vez, pode comentar.
-nltk.download('wordnet')
-nltk.download('omw-1.4')
-nltk.download('stopwords')
-nltk.download('punkt')
-nltk.download('punkt_tab')
-nltk.download('rslp')
+# nltk.download('wordnet')
+# nltk.download('omw-1.4')
+# nltk.download('stopwords')
+# nltk.download('punkt')
+# nltk.download('punkt_tab')
+# nltk.download('rslp')
 
 
 HEADERS = {
@@ -122,6 +123,7 @@ def get_movies_info():
 
     # no final, salva num csv
 
+    os.makedirs("data", exist_ok=True)
     df.to_csv("data/movies_info.csv", index=False, encoding="utf-8", sep=";")
 
 def clean_synopis(sinopse):
@@ -180,3 +182,8 @@ def stemming(palavras_filtradas: list[str]) -> list:
     return palavras_stemmed
 
 get_movies_info()
+
+
+# Código de vetorização foi movido para o módulo src/
+# Use o script main.py para executar o pipeline completo
+
