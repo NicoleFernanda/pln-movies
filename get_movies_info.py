@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import requests
 import string
-import nltk
+# import nltk
 from nltk.stem import RSLPStemmer 
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
@@ -53,73 +53,76 @@ def get_movies_info():
 
             # pega a sinopse
             div_synopsis = soup.find("div", id="synopsis")
-            synopsis_content = div_synopsis.find("p").get_text(strip=True)
+            try:
+                synopsis_content = div_synopsis.find("p").get_text(strip=True)
+                # filtra as palavras e, a partir dela, faz o stemming e lemming
+                clean_words = clean_synopis(synopsis_content)
+                synopsis_lemming = lemma(clean_words)
+                synopsis_stemming = stemming(clean_words)
 
-            # filtra as palavras e, a partir dela, faz o stemming e lemming
-            clean_words = clean_synopis(synopsis_content)
-            synopsis_lemming = lemma(clean_words)
-            synopsis_stemming = stemming(clean_words)
+                # pega as avaliações
+                # caso não existam avaliações, deixa como não avaliado
+                ratings_rotten_jw = soup.find_all("div", class_="jw-scoring-listing__rating--group jw-scoring-listing__rating--no-link")
+                rating_just_watch = "NAOAVALIADO"
+                rating_rotten_tomatoes = "NAOAVALIADO"
+                rating_imdb = "NAOAVALIADO"
 
-            # pega as avaliações
-            # caso não existam avaliações, deixa como não avaliado
-            ratings_rotten_jw = soup.find_all("div", class_="jw-scoring-listing__rating--group jw-scoring-listing__rating--no-link")
-            rating_just_watch = "NAOAVALIADO"
-            rating_rotten_tomatoes = "NAOAVALIADO"
-            rating_imdb = "NAOAVALIADO"
+                # caso existam valores, dai salva na variavel
+                if len(ratings_rotten_jw) > 1:
+                    rating_just_watch = ratings_rotten_jw[0].get_text(strip=True)
+                    rating_rotten_tomatoes = ratings_rotten_jw[1].get_text(strip=True)
+                
+                # mesma coisa para o rating do imdb, caso exista, é salvo na variável
+                rating_imdb = soup.find("div", class_="jw-scoring-listing__rating--group jw-scoring-listing__rating--link")
+                if rating_imdb:
+                    rating_imdb = rating_imdb.text.strip()
+                
+                # pega o titulo, caso não encontre, fica como vazio
+                title = soup.find_all("h1")
+                if title:
+                    title = title[0].get_text(strip=True)
+                else:
+                    title = "VAZIO"
 
-            # caso existam valores, dai salva na variavel
-            if len(ratings_rotten_jw) > 1:
-                rating_just_watch = ratings_rotten_jw[0].get_text(strip=True)
-                rating_rotten_tomatoes = ratings_rotten_jw[1].get_text(strip=True)
-            
-            # mesma coisa para o rating do imdb, caso exista, é salvo na variável
-            rating_imdb = soup.find("div", class_="jw-scoring-listing__rating--group jw-scoring-listing__rating--link")
-            if rating_imdb:
-                rating_imdb = rating_imdb.text.strip()
-            
-            # pega o titulo, caso não encontre, fica como vazio
-            title = soup.find_all("h1")
-            if title:
-                title = title[0].get_text(strip=True)
-            else:
-                title = "VAZIO"
+                # pega o ano
+                year = soup.find("span", class_="release-year").get_text(strip=True)
+        
+                # pega informa~]oes diversas
+                infos = soup.find_all("div", class_="poster-detail-infos__value")
 
-            # pega o ano
-            year = soup.find("span", class_="release-year").get_text(strip=True)
-    
-            # pega informa~]oes diversas
-            infos = soup.find_all("div", class_="poster-detail-infos__value")
+                # pega os generos do titulo
+                genres = infos[4].get_text(strip=True).split(',')
+                genres = [genre.strip() for genre in genres]
 
-            # pega os generos do titulo
-            genres = infos[4].get_text(strip=True).split(',')
-            genres = [genre.strip() for genre in genres]
+                # pega a duração do filme
+                movie_duration = infos[6].get_text(strip=True)
 
-            # pega a duração do filme
-            movie_duration = infos[6].get_text(strip=True)
-
-            # classificação de idade livre por padrão 
-            age_classification = 'L'
-            
-            # caso exista essa classificação, é salva
-            if len(infos) >= 9:
-                age_classification = infos[8].get_text(strip=True)            
-            
-            # adiciona no dataframe
-            df = pd.concat([df, pd.DataFrame([{
-                "link": link,
-                "title": title,
-                "year": year,
-                "streamings": streamings_names,
-                "synopsis_content": synopsis_content,
-                "synopsis_lemming": synopsis_lemming,
-                "synopsis_stemming": synopsis_stemming,
-                "just_watch_rating": rating_just_watch,
-                "rotten_tomatoes_rating": rating_rotten_tomatoes,
-                "imdb_ratings": rating_imdb,
-                "genres": genres,
-                "movie_duration": movie_duration,
-                "age_classification": age_classification
-            }])], ignore_index=True)
+                # classificação de idade livre por padrão 
+                age_classification = 'L'
+                
+                # caso exista essa classificação, é salva
+                if len(infos) >= 9:
+                    age_classification = infos[8].get_text(strip=True)            
+                
+                # adiciona no dataframe
+                df = pd.concat([df, pd.DataFrame([{
+                    "link": link,
+                    "title": title,
+                    "year": year,
+                    "streamings": streamings_names,
+                    "synopsis_content": synopsis_content,
+                    "synopsis_lemming": synopsis_lemming,
+                    "synopsis_stemming": synopsis_stemming,
+                    "just_watch_rating": rating_just_watch,
+                    "rotten_tomatoes_rating": rating_rotten_tomatoes,
+                    "imdb_ratings": rating_imdb,
+                    "genres": genres,
+                    "movie_duration": movie_duration,
+                    "age_classification": age_classification
+                }])], ignore_index=True)
+            except AttributeError:
+                print(f"pulando filme %s", link)
+                continue
 
     # no final, salva num csv
 
@@ -185,5 +188,4 @@ get_movies_info()
 
 
 # Código de vetorização foi movido para o módulo src/
-# Use o script main.py para executar o pipeline completo
 

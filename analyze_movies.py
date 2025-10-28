@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-"""Script simples para análise de filmes com PLN."""
-
 import pandas as pd
 #from src.text_preprocessor import TextPreprocessor
 from src.vectorizer import Vectorizer
