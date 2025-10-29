@@ -1,7 +1,6 @@
 import pandas as pd
-#from src.text_preprocessor import TextPreprocessor
-from src.vectorizer import Vectorizer
-from src.recommendation_system import RecommendationSystem
+from vectorizer import Vectorizer
+from recommendation_system import RecommendationSystem
 
 def load_data():
     """Carrega dados dos filmes."""

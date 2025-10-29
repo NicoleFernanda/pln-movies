@@ -13,7 +13,7 @@ class RecommendationSystem:
         self.similarity_matrix = None
         self.pca_coords = None
     
-    def perform_clustering(self, method="sbert", n_clusters=None):
+    def perform_clustering(self, method="sbert", n_clusters=10):
         # Determinar número de clusters automaticamente
         if n_clusters is None:
             n_samples = len(self.df)
