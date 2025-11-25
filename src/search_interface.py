@@ -6,8 +6,7 @@ import webbrowser
 import threading
 from vectorizer import Vectorizer
 from recommendation_system import RecommendationSystem
-from sklearn.neighbors import KNeighborsClassifier
-import numpy as np
+from knn import KNN
 from dotenv import load_dotenv
 import google.generativeai as genai
 
@@ -22,10 +21,12 @@ class MovieSearchGUI:
         self.df = None
         self.vectorizer = None
         self.recommender = None
-        self.knn_model = None
+        self.knn_classifier = None
+        self.clusters = None
         self.search_results = []
         self.gemini_model = None
         self.gemini_enabled = False
+        self.embeddings_loaded = False
 
         self.setup_styles()
         self.setup_gemini()
@@ -91,28 +92,29 @@ class MovieSearchGUI:
             row=0, column=0, sticky=tk.W, padx=(0, 10)
         )
 
-        self.search_type_var = tk.StringVar(value="genre")
-        search_types = [
-            ("Gênero", "genre"),
-            ("Título de Filme", "title"),
-            ("Sinopse", "synopsis"),
-        ]
+        self.search_type_var = tk.StringVar(value="Gênero")
+        search_types = ["Gênero", "Título de Filme", "Sinopse"]
 
-        for i, (text, value) in enumerate(search_types):
-            ttk.Radiobutton(
-                search_frame,
-                text=text,
-                variable=self.search_type_var,
-                value=value,
-                command=self.update_input_label,
-            ).grid(row=0, column=1 + i, sticky=tk.W, padx=5)
+        self.search_type_combo = ttk.Combobox(
+            search_frame,
+            textvariable=self.search_type_var,
+            values=search_types,
+            state="readonly",
+            width=25,
+            font=("Arial", 10),
+        )
+        self.search_type_combo.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
+        self.search_type_combo.bind(
+            "<<ComboboxSelected>>", lambda e: self.update_input_label()
+        )
+        search_frame.columnconfigure(1, weight=1)
 
         ttk.Label(search_frame, text="Buscar por:", font=("Arial", 10)).grid(
             row=1, column=0, sticky=tk.W, padx=(0, 10), pady=(10, 0)
         )
 
         self.input_label = ttk.Label(
-            search_frame, text="Palavra-chave:", font=("Arial", 9), foreground="gray"
+            search_frame, text="Digite o gênero", font=("Arial", 9), foreground="gray"
         )
         self.input_label.grid(row=1, column=1, sticky=tk.W, padx=(0, 10), pady=(10, 0))
 
@@ -161,6 +163,14 @@ class MovieSearchGUI:
             state=tk.NORMAL if self.gemini_enabled else tk.DISABLED,
         )
         gemini_check.pack(side=tk.LEFT, padx=(0, 20))
+        
+        self.use_knn_var = tk.BooleanVar(value=True)
+        knn_check = ttk.Checkbutton(
+            controls_frame,
+            text="Usar Filtro KNN",
+            variable=self.use_knn_var,
+        )
+        knn_check.pack(side=tk.LEFT, padx=(0, 20))
 
         self.search_button = ttk.Button(
             controls_frame, text="Buscar", command=self.perform_search
@@ -197,13 +207,13 @@ class MovieSearchGUI:
 
         self.results_frame = scrollable_frame
 
-        self.no_results_label = ttk.Label(
-            scrollable_frame,
-            text="Digite algo para buscar...",
-            font=("Arial", 11),
-            foreground="gray",
-        )
-        self.no_results_label.pack(pady=20)
+        # self.no_results_label = ttk.Label(
+        #     scrollable_frame,
+        #     text="",
+        #     font=("Arial", 11),
+        #     foreground="gray",
+        # )
+        # self.no_results_label.pack(pady=20)
 
         info_frame = ttk.Frame(main_frame)
         info_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
@@ -217,9 +227,9 @@ class MovieSearchGUI:
         """Atualiza o rótulo do campo de entrada baseado no tipo de busca."""
         search_type = self.search_type_var.get()
         labels = {
-            "genre": "Digite o gênero",
-            "title": "Digite o título do filme",
-            "synopsis": "Digite ou cole a sinopse",
+            "Gênero": "Digite o gênero",
+            "Título de Filme": "Digite o título do filme",
+            "Sinopse": "Digite ou cole a sinopse",
         }
         self.input_label.config(text=labels.get(search_type, "Buscar por:"))
 
@@ -237,13 +247,22 @@ class MovieSearchGUI:
                 self.df = pd.read_csv(df_path, sep=";", encoding="utf-8")
 
                 self.vectorizer = Vectorizer()
-                sinopses = self.df["synopsis_content"].fillna("").tolist()
-                self.vectorizer.create_sbert_embeddings(sinopses)
+
+                # Criar textos enriquecidos com gêneros para melhor precisão
+                enriched_texts = []
+                for idx, row in self.df.iterrows():
+                    synopsis = str(row.get("synopsis_content", "")).strip()
+                    genres = str(row.get("genres", "")).strip()
+                    enriched_text = f"{synopsis}. Gêneros: {genres}. {genres}."
+                    enriched_texts.append(enriched_text)
+
+                self.vectorizer.create_sbert_embeddings(enriched_texts)
 
                 self.recommender = RecommendationSystem(self.df, self.vectorizer)
 
                 self._load_knn_model()
 
+                self.embeddings_loaded = True
                 self.loading_label.config(text="Pronto!")
                 self.root.after(2000, lambda: self.loading_label.config(text=""))
 
@@ -254,51 +273,116 @@ class MovieSearchGUI:
         thread.start()
 
     def _load_knn_model(self):
-        """Carrega o modelo KNN."""
+        """Carrega o modelo KNN e os clusters."""
         try:
             base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            x_path = os.path.join(
-                base_path, "data", "vectorized", "sbert_embeddings.npy"
-            )
-            y_path = os.path.join(base_path, "data", "vectorized", "cluster_labels.csv")
-
-            x = np.load(x_path)
-            y = pd.read_csv(y_path, sep=";")["cluster"]
-
-            self.knn_model = KNeighborsClassifier(n_neighbors=5, metric="cosine")
-            self.knn_model.fit(x, y)
+            
+            # Carrega clusters
+            cluster_path = os.path.join(base_path, "data", "vectorized", "cluster_labels.csv")
+            cluster_df = pd.read_csv(cluster_path, sep=";")
+            self.clusters = cluster_df["cluster"].values
+            
+            # Carrega modelo KNN
+            self.knn_classifier = KNN(k_neighbors=5, metric="cosine")
+            self.knn_classifier.load_and_train(base_path=base_path)
+            
+            print(f"KNN carregado com {len(set(self.clusters))} clusters")
         except Exception as e:
             print(f"Aviso: KNN não disponível: {e}")
 
+    def search_with_knn_boost(self, query, top_k=5, use_cluster_filter=True):
+        """
+        Busca melhorada usando KNN para filtrar por cluster.
+        
+        Args:
+            query: Texto da busca
+            top_k: Número de resultados
+            use_cluster_filter: Se True, filtra por cluster
+        
+        Returns:
+            Lista de (idx, similarity) dos filmes mais relevantes
+        """
+        if self.knn_classifier is None or self.clusters is None:
+            # Fallback: busca normal sem KNN
+            return self.vectorizer.search_similar_documents(query, top_k)
+        
+        # 1. Determinar cluster da query
+        query_embedding = self.vectorizer.sbert_model.encode([query], normalize_embeddings=True)
+        query_cluster = self.knn_classifier.predict(query_embedding)[0]
+        
+        print(f"KNN: Query classificada no cluster {query_cluster}")
+        
+        if use_cluster_filter:
+            # 2. Buscar mais candidatos para filtrar
+            candidates = self.vectorizer.search_similar_documents(query, top_k * 10)
+            
+            # 3. Filtrar por cluster e pegar melhores
+            same_cluster = []
+            other_clusters = []
+            
+            for idx, sim in candidates:
+                if self.clusters[idx] == query_cluster:
+                    same_cluster.append((idx, sim))
+                else:
+                    other_clusters.append((idx, sim))
+            
+            # 4. Priorizar filmes do mesmo cluster, depois outros
+            # 70% do mesmo cluster, 30% de outros clusters para diversidade
+            n_same = int(top_k * 0.7)
+            n_other = top_k - n_same
+            
+            results = same_cluster[:n_same] + other_clusters[:n_other]
+            
+            # Se não houver filmes suficientes do mesmo cluster
+            if len(results) < top_k:
+                results = (same_cluster + other_clusters)[:top_k]
+            
+            print(f"KNN: {len(same_cluster)} filmes no mesmo cluster, retornando {len(results)} resultados")
+            return results[:top_k]
+        else:
+            # Re-ranking: aumentar score de filmes do mesmo cluster
+            candidates = self.vectorizer.search_similar_documents(query, top_k * 3)
+            
+            reranked = []
+            for idx, sim in candidates:
+                # Boost de 10% para filmes do mesmo cluster
+                boost = 1.1 if self.clusters[idx] == query_cluster else 1.0
+                reranked.append((idx, sim * boost))
+            
+            # Reordenar por novo score
+            reranked.sort(key=lambda x: x[1], reverse=True)
+            return reranked[:top_k]
+    
     def refine_query_with_gemini(self, search_text, search_type):
         """Refina a query usando Gemini AI."""
         if not self.gemini_enabled or not self.use_gemini_var.get():
+            print(f"Gemini AI: DESATIVADO - Usando busca direta: '{search_text}'")
             return search_text
 
         try:
+            print(f"Gemini AI: ATIVADO - Refinando query '{search_text}' para tipo '{search_type}'...")
+            
             prompts = {
                 "keyword": f"Você é um assistente especializado em recomendação de filmes. O usuário digitou: '{search_text}'. Refine este texto em uma busca otimizada para encontrar filmes similares. Responda apenas com a query refinada, sem explicações.",
                 "genre": f"Você é um assistente especializado em recomendação de filmes. O usuário quer filmes do gênero: '{search_text}'. Refine esta busca para melhor capturar filmes deste gênero. Responda apenas com a query refinada.",
-                "title": search_text,
+                "title": f"Você é um assistente especializado em recomendação de filmes. O usuário quer o filme com nome de '{search_text}'. Tente localizar o filme com esse nome. Responda apenas com a query refinada.",
                 "synopsis": f"Você é um assistente especializado em recomendação de filmes. O usuário forneceu esta sinopse: '{search_text}'. Resuma os temas principais em palavras-chave para buscar filmes similares. Responda apenas com as palavras-chave refinadas.",
             }
 
             prompt = prompts.get(search_type, search_text)
+            
+            response = self.gemini_model.generate_content(prompt)
+            refined_text = response.text.strip()
+            print(f"\u2713 Query refinada por Gemini: '{refined_text}'")
+            return refined_text
 
-            if search_type != "title":
-                response = self.gemini_model.generate_content(prompt)
-                refined_text = response.text.strip()
-                print(f"Query refinada por Gemini: {refined_text}")
-                return refined_text
-
-            return search_text
         except Exception as e:
-            print(f"Erro ao refinar com Gemini: {e}")
+            print(f"\u2717 Erro ao refinar com Gemini: {e}")
             return search_text
 
     def perform_search(self):
         """Executa a busca."""
-        if self.df is None:
+        if self.df is None or not self.embeddings_loaded:
             messagebox.showwarning(
                 "Aviso",
                 "Dados ainda estão carregando. Tente novamente em alguns segundos.",
@@ -315,7 +399,15 @@ class MovieSearchGUI:
         except ValueError:
             top_k = 5
 
-        search_type = self.search_type_var.get()
+        search_type_display = self.search_type_var.get()
+
+        # Mapear labels de exibição para tipos internos
+        type_mapping = {
+            "Gênero": "genre",
+            "Título de Filme": "title",
+            "Sinopse": "synopsis",
+        }
+        search_type = type_mapping.get(search_type_display, "genre")
 
         self.loading_label.config(text="Buscando...")
         self.root.update()
@@ -326,27 +418,18 @@ class MovieSearchGUI:
                     search_text, search_type
                 )
 
-                if search_type == "keyword":
-                    self.search_results = self.vectorizer.search_similar_documents(
-                        refined_search_text, top_k
+                # Usar busca com KNN se disponível e ativado
+                if self.knn_classifier is not None and self.use_knn_var.get():
+                    print("Usando busca com KNN para melhor precisão...")
+                    self.search_results = self.search_with_knn_boost(
+                        refined_search_text, top_k, use_cluster_filter=True
                     )
-                elif search_type == "genre":
-                    self.search_results = self.vectorizer.search_similar_documents(
-                        refined_search_text, top_k
-                    )
-                elif search_type == "title":
-                    recommendations = self.recommender.recommend_by_title(
-                        search_text, top_k=top_k
-                    )
-                    self.search_results = [
-                        (
-                            self.df[self.df["title"] == rec["title"]].index[0],
-                            rec["similarity"],
-                        )
-                        for rec in recommendations
-                        if rec["title"] in self.df["title"].values
-                    ]
-                elif search_type == "synopsis":
+                else:
+                    if self.knn_classifier is None:
+                        print("KNN não disponível, usando busca padrão...")
+                    else:
+                        print("KNN desativado pelo usuário, usando busca padrão...")
+                    
                     self.search_results = self.vectorizer.search_similar_documents(
                         refined_search_text, top_k
                     )
@@ -354,10 +437,14 @@ class MovieSearchGUI:
                 self.root.after(0, self.display_results)
 
             except ValueError as e:
-                self.root.after(0, lambda: messagebox.showerror("Erro", str(e)))
-            except Exception as e:
+                error_msg = str(e)
                 self.root.after(
-                    0, lambda: messagebox.showerror("Erro", f"Erro na busca: {e}")
+                    0, lambda msg=error_msg: messagebox.showerror("Erro", msg)
+                )
+            except Exception as e:
+                error_msg = f"Erro na busca: {e}"
+                self.root.after(
+                    0, lambda msg=error_msg: messagebox.showerror("Erro", msg)
                 )
             finally:
                 self.root.after(0, lambda: self.loading_label.config(text=""))

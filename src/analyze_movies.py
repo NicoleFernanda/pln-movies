@@ -22,11 +22,22 @@ def analyze_movies():
         #tokens = preprocessor.preprocess_text(text)
         processed_texts.append(text)
     
-    # 3. Criar vetores
+    # 3. Criar vetores com contexto enriquecido
     vectorizer = Vectorizer()
     vectorizer.create_bow_vectors(processed_texts)
     vectorizer.create_tfidf_vectors(processed_texts)
-    vectorizer.create_sbert_embeddings(df['synopsis_content'].fillna("").tolist())
+    
+    # Criar textos enriquecidos com gêneros para melhor busca
+    enriched_texts = []
+    for idx, row in df.iterrows():
+        synopsis = str(row.get('synopsis_content', '')).strip()
+        genres = str(row.get('genres', '')).strip()
+        
+        # Combinar sinopse com gêneros repetidos para dar mais peso
+        enriched_text = f"{synopsis}. Gêneros: {genres}. {genres}."
+        enriched_texts.append(enriched_text)
+    
+    vectorizer.create_sbert_embeddings(enriched_texts)
     
     # 4. Sistema de recomendação
     recommender = RecommendationSystem(df, vectorizer)
